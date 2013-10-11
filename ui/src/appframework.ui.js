@@ -8,7 +8,7 @@
     "use strict";
 
     var hasLaunched = false;
-    var startPath = window.location.pathname;
+    var startPath = window.location.pathname + window.location.search;
     var defaultHash = window.location.hash;
     var previousTarget = defaultHash;
     var ui = function() {
@@ -65,10 +65,21 @@
             });
         }
         else if (document.readyState == "complete" || document.readyState == "loaded") {
-            this.autoBoot();
-        } else $(document).ready(function() {
+            if(that.init)
                 that.autoBoot();
-
+            else{
+                $(window).one("afui:init", function() {
+        		  that.autoBoot();  
+                });
+            }
+        } else $(document).ready(function() {
+                if(that.init)
+                    that.autoBoot();
+                else{
+                    $(window).one("afui:init", function() {
+                        that.autoBoot();
+                    });
+                }
             }, false);
 
         if (!("AppMobi" in window)) window.AppMobi = {}, window.AppMobi.webRoot = "";
@@ -96,22 +107,37 @@
                     $("head").append($.create("script", {
                         src: "plugins/af.8tiles.js"
                     }));
-                } else if ($.os.blackberry) {
+                } else if ($.os.blackberry||$.os.blackberry10||$.os.playbook) {
                     $("#afui").addClass("bb");
-                    that.backButtonText = "Back";
+                    that.backButtonText = "Back";                
                 } else if ($.os.ios7)
                     $("#afui").addClass("ios7");
                 else if ($.os.ios)
                     $("#afui").addClass("ios");
             }
+            //BB 10 hack to work with any theme
+            if ($.os.blackberry||$.os.blackberry10||$.os.playbook)
+            {
+                $("head").find("#bb10VisibilityHack").remove();
+                $("head").append("<style id='bb10VisibilityHack'>#afui .panel {-webkit-backface-visibility:visible  !important}</style>");
+            }
+            /** iOS 7 will get blurry if you use the perspective hack, so we remove it */
+            /** @TODO - refactor CSS to not use the perspective hack and move the ios5/6 hacks here */
+            else if($.os.ios7){
+                $("head").find("#ios7BlurrHack").remove();
+                $("head").append("<style id='ios7BlurrHack'>#afui .panel {-webkit-perspective:0  !important}</style>");   
+            }
+            //iOS 7 specific hack */
 
         }
     };
 
 
     ui.prototype = {
+        init:false,
         transitionTime: "230ms",
         showLoading: true,
+        loadingText: "Loading Content",
         loadContentQueue: [],
         isIntel: false,
         titlebar: "",
@@ -135,7 +161,7 @@
         selectBox: $.selectBox ? $.selectBox : false,
         ajaxUrl: "",
         transitionType: "slide",
-        scrollingDivs: [],
+        scrollingDivs: {},
         firstDiv: "",
         hasLaunched: false,
         launchCompleted: false,
@@ -149,6 +175,7 @@
         lockPageBounce: false,
         animateHeaders: true,
         useAutoPressed: true,
+        horizontalScroll:false,
         _currentHeaderID:"defaultHeader",
         autoBoot: function() {
             this.hasLaunched = true;
@@ -317,7 +344,8 @@
            $.ui.showBackButton = false; //
          * @title $.ui.showBackButton
          */
-        showBackbutton: true,
+        showBackbutton: true, // Kept for backward compatibility.
+        showBackButton: true,
         /**
          *  Override the back button text
             ```
@@ -369,14 +397,16 @@
            ```
 
          * @title $.ui.goBack()
+         * @param {Number} [delta=1]  relative position from the last element (> 0)
          */
-        goBack: function() {
-            if (this.history.length > 0) {
-                var that = this;
-                var tmpEl = this.history.pop();
-                that.loadContent(tmpEl.target + "", 0, 1, tmpEl.transition);
-                that.transitionType = tmpEl.transition;
-                that.updateHash(tmpEl.target);
+        goBack: function(delta) {
+            delta = Math.min(Math.abs(~~delta || 1), this.history.length);
+
+            if (delta) {
+                var tmpEl = this.history.splice(-delta).shift();
+                this.loadContent(tmpEl.target + "", 0, 1, tmpEl.transition);
+                this.transitionType = tmpEl.transition;
+                this.updateHash(tmpEl.target);
             }
         },
         /**
@@ -823,7 +853,7 @@
          * @title $.ui.showMask(text);
          */
         showMask: function(text) {
-            if (!text) text = "Loading Content";
+            if (!text) text = this.loadingText || "";
             $.query("#afui_mask>h1").html(text);
             $.query("#afui_mask").show();
         },
@@ -849,16 +879,30 @@
             var modalDiv = $.query("#modalContainer");
             if (typeof(id) === "string")
                 id = "#" + id.replace("#", "");
-            if ($.query(id)) {
-                modalDiv.html($.feat.nativeTouchScroll ? $.query(id).html() : $.query(id).get(0).childNodes[0].innerHTML + '', true);
+            var $panel = $.query(id);
+            if ($panel.length) {
+                var useScroller = this.scrollingDivs.hasOwnProperty( $panel.attr("id") );
+                modalDiv.html($.feat.nativeTouchScroll || !useScroller ? $.query(id).html() : $.query(id).get(0).childNodes[0].innerHTML + '', true);
                 modalDiv.append("<a onclick='$.ui.hideModal();' class='closebutton modalbutton'></a>");
                 that.modalWindow.style.display = "block";
 
                 this.runTransition(this.modalTransition, that.modalTransContainer, that.modalWindow, false);
 
-                this.scrollingDivs.modal_container.enable(that.resetScrollers);
+                if (useScroller) {
+                    this.scrollingDivs.modal_container.enable(that.resetScrollers);
+                }
+                else {
+                    this.scrollingDivs.modal_container.disable();
+                }
+
                 this.scrollToTop('modal');
                 modalDiv.data("panel", id);
+                var myPanel=$panel.get(0);
+                var fnc = myPanel.getAttribute("data-load");
+                if (typeof fnc == "string" && window[fnc]) {
+                    window[fnc](myPanel);
+                }
+                $panel.trigger("loadpanel");
 
             }
         },
@@ -914,7 +958,7 @@
                 $.cleanUpContent(el, false, true);
                 $(el).html(content);
             }
-            if (newDiv.title) el.title = newDiv.title;
+            if (newDiv.getAttribute("data-title")) el.setAttribute("data-title",newDiv.getAttribute("data-title"));
         },
         /**
          * Same as $.ui.updatePanel.  kept for backwards compatibility
@@ -949,7 +993,7 @@
                 if (newDiv.children('.panel') && newDiv.children('.panel').length > 0) newDiv = newDiv.children('.panel').get(0);
                 else newDiv = newDiv.get(0);
 
-                if (!newDiv.title && title) newDiv.title = title;
+                if (!newDiv.getAttribute("data-title") && title) newDiv.setAttribute("data-title",title);
                 newId = (newDiv.id) ? newDiv.id : el.replace("#", ""); //figure out the new id - either the id from the loaded div.panel or the crc32 hash
                 newDiv.id = newId;
                 if (newDiv.id != el) newDiv.setAttribute("data-crc", el.replace("#", ""));
@@ -973,6 +1017,7 @@
          * @api private
          */
         addDivAndScroll: function(tmp, refreshPull, refreshFunc, container) {
+            var self=this;
             var jsScroll = false,
                 scrollEl;
             var overflowStyle = tmp.style.overflow;
@@ -986,6 +1031,9 @@
                 jsScroll = true;
                 hasScroll = true;
             }
+            var title=tmp.title;
+            tmp.title="";
+            tmp.setAttribute("data-title",title);
 
 
 
@@ -1004,10 +1052,10 @@
                 scrollEl = tmp.cloneNode(false);
 
 
-                tmp.title = null;
+                tmp.title = null;                
                 tmp.id = null;
                 var $tmp = $(tmp);
-                $tmp.removeAttr("data-footer data-nav data-header selected data-load data-unload data-tab data-crc");
+                $tmp.removeAttr("data-footer data-aside data-nav data-header selected data-load data-unload data-tab data-crc title data-title");
 
                 $tmp.replaceClass("panel", "afScrollPanel");
 
@@ -1024,7 +1072,7 @@
                 this.scrollingDivs[scrollEl.id] = ($(tmp).scroller({
                     scrollBars: true,
                     verticalScroll: true,
-                    horizontalScroll: false,
+                    horizontalScroll: self.horizontalScroll,
                     vScrollCSS: "afScrollbar",
                     refresh: refreshPull,
                     useJsScroll: jsScroll,
@@ -1107,6 +1155,7 @@
             }
             if (hasHeader && hasHeader.toLowerCase() == "none") {
                 that.toggleHeaderMenu(false);
+                hasHeader=false;
             } else {
                 that.toggleHeaderMenu(true);
             }
@@ -1154,8 +1203,7 @@
                 }
                 this.customMenu = false;
             }
-
-
+       
 
             if (oldDiv) {
                 fnc = oldDiv.getAttribute("data-unload");
@@ -1171,19 +1219,7 @@
             $(what).trigger("loadpanel");
             if (this.isSideMenuOn()) {
                 var that = this;
-                that.toggleSideMenu(false);
-                /* $("#menu").width(window.innerWidth);
-
-                $(".hasMenu").css3Animate({
-                    x: (window.innerWidth + 100),
-                    time: that.transitionTime,
-                    complete: function() {
-                        $("#menu").width(that.sideMenuWidth);
-                        that.toggleSideMenu(false);
-
-                    }
-                });
-                */
+                that.toggleSideMenu(false);               
             }
         },
         /**
@@ -1273,7 +1309,10 @@
 
             what = $.query("#" + what).get(0);
 
-            if (!what) return console.log("Target: " + target + " was not found");
+            if (!what) {
+                $(document).trigger("missingpanel", null, {missingTarget: target});
+                return;
+            }
             if (what == this.activeDiv && !back) {
                 //toggle the menu if applicable
                 if (this.isSideMenuOn()) this.toggleSideMenu(false);
@@ -1284,11 +1323,12 @@
             var currWhat = what;
 
             if (what.getAttribute("data-modal") == "true" || what.getAttribute("modal") == "true") {
-                var fnc = what.getAttribute("data-load");
+                /*var fnc = what.getAttribute("data-load");
                 if (typeof fnc == "string" && window[fnc]) {
                     window[fnc](what);
                 }
-                $(what).trigger("loadpanel");
+                $(what).trigger("loadpanel");                
+                */
                 return this.showModal(what.id);
             }
 
@@ -1323,7 +1363,7 @@
                 if (that.scrollingDivs[oldDiv.id]) {
                     that.scrollingDivs[oldDiv.id].disable();
                 }
-            }, (that.transitionTime) + 50);
+            }, numOnly(that.transitionTime) + 50);
 
         },
         /**
@@ -1349,16 +1389,16 @@
                     } else prevId = val.target;
                     el = $.query(prevId).get(0);
                     //make sure panel is there
-                    if (el) this.setBackButtonText(el.title);
+                    if (el) this.setBackButtonText(el.getAttribute("data-title"));
                     else this.setBackButtonText("Back");
                 }
-            } else if (this.activeDiv.title) this.setBackButtonText(this.activeDiv.title);
+            } else if (this.activeDiv.getAttribute("data-title")) this.setBackButtonText(this.activeDiv.getAttribute("data-title"));
             else this.setBackButtonText("Back");
-            if (what.title) {
-                this.setTitle(what.title);
+            if (what.getAttribute("data-title")) {
+                this.setTitle(what.getAttribute("data-title"));
             }
             if (newTab) {
-                this.setBackButtonText(this.firstDiv.title);
+                this.setBackButtonText(this.firstDiv.getAttribute("data-title"));
                 if (what == this.firstDiv) {
                     this.history.length = 0;
                 }
@@ -1369,7 +1409,7 @@
                 this.setBackButtonVisibility(false);
                 this.history = [];
                 $("#header #menubadge").css("float", "left");
-            } else if (this.showBackbutton) this.setBackButtonVisibility(true);
+            } else if (this.showBackButton && this.showBackbutton) this.setBackButtonVisibility(true);
             this.activeDiv = what;
             if (this.scrollingDivs[this.activeDiv.id]) {
                 this.scrollingDivs[this.activeDiv.id].enable(this.resetScrollers);
@@ -1410,7 +1450,7 @@
                     //Here we check to see if we are retaining the div, if so update it
                     if (retainDiv.length > 0) {
                         that.updatePanel(urlHash, xmlhttp.responseText);
-                        retainDiv.get(0).title = anchor.title ? anchor.title : target;
+                        retainDiv.get(0).setAttribute("data-title",anchor.title ? anchor.title : target);
                     } else if (anchor.getAttribute("data-persist-ajax") || that.isAjaxApp) {
 
                         var refresh = (anchor.getAttribute("data-pull-scroller") === 'true') ? true : false;
@@ -1421,9 +1461,12 @@
                         } : null;
                         //that.addContentDiv(urlHash, xmlhttp.responseText, refresh, refreshFunction);
                         var contents = $(xmlhttp.responseText);
-                        console.log(anchor);
+                        
                         if (contents.hasClass("panel"))
+                        {
+                            urlHash=contents.attr("id");
                             contents = contents.get(0).innerHTML;
+                        }
                         else
                             contents = contents.html();
                         if ($("#" + urlHash).length > 0) {
@@ -1435,8 +1478,8 @@
                             urlHash = that.addContentDiv(urlHash, xmlhttp.responseText, anchor.title ? anchor.title : target, refresh, refreshFunction);
                     } else {
                         that.updatePanel("afui_ajax", xmlhttp.responseText);
-                        $.query("#afui_ajax").get(0).title = anchor.title ? anchor.title : target;
-                        that.loadContent("#afui_ajax", newTab, back);
+                        $.query("#afui_ajax").get(0).setAttribute("data-title",anchor.title ? anchor.title : target);
+                        that.loadContent("#afui_ajax", newTab, back, transition);
                         doReturn = true;
                     }
                     //Let's load the content now.
@@ -1450,7 +1493,7 @@
                         return;
                     }
 
-                    that.loadContent("#" + urlHash);
+                    that.loadContent("#" + urlHash, newTab, back, transition);
                     if (that.showLoading) that.hideMask();
                     return null;
                 }
@@ -1544,7 +1587,9 @@
             });
             if ($.os.ios) {
                 $.bind($.touchLayer, 'exit-edit-reshape', function() {
-                    that.scrollingDivs[that.activeDiv.id].setPaddings(0, 0);
+                    if (that.activeDiv && that.activeDiv.id && that.scrollingDivs.hasOwnProperty(that.activeDiv.id)) {
+                        that.scrollingDivs[that.activeDiv.id].setPaddings(0, 0);
+                    }
                 });
             }
 
@@ -1579,6 +1624,23 @@
                     lockBounce: this.lockPageBounce
                 });
                 if ($.feat.nativeTouchScroll) $.query("#menu_scroller").css("height", "100%");
+
+                this.asideMenu = $.create("div", {
+                    id: "aside_menu",
+                    html: '<div id="aside_menu_scroller"></div>'
+                }).get(0);
+                this.viewportContainer.append(this.asideMenu);
+                this.asideMenu.style.overflow = "hidden";
+                this.scrollingDivs.menu_scroller = $.query("#aside_menu_scroller").scroller({
+                    scrollBars: true,
+                    verticalScroll: true,
+                    vScrollCSS: "afScrollbar",
+                    useJsScroll: !$.feat.nativeTouchScroll,
+                    noParent: $.feat.nativeTouchScroll,
+                    autoEnable: true,
+                    lockBounce: this.lockPageBounce
+                });
+                if ($.feat.nativeTouchScroll) $.query("#aside_menu_scroller").css("height", "100%");
             }
 
             if (!this.content) {
@@ -1745,10 +1807,12 @@
                     //go to activeDiv
                     var firstPanelId = that.getPanelId(defaultHash);
                     //that.history=[{target:'#'+that.firstDiv.id}];   //set the first id as origin of path
-                    if (firstPanelId.length > 0 && that.loadDefaultHash && firstPanelId != ("#" + that.firstDiv.id) && $.query(firstPanelId).length > 0) {
+                    var isFirstPanel = !!(firstPanelId == "#" + that.firstDiv.id);
+                    if (firstPanelId.length > 0 && that.loadDefaultHash && !isFirstPanel) {
                         that.loadContent(defaultHash, true, false, 'none'); //load the active page as a newTab with no transition
+                    }
 
-                    } else {
+                    else {
                         previousTarget = "#" + that.firstDiv.id;
 
                         that.firstDiv.style.display = "block";
@@ -1865,7 +1929,7 @@
 
             var custom = (typeof $.ui.customClickHandler == "function") ? $.ui.customClickHandler : false;
             if (custom !== false) {
-                if ($.ui.customClickHandler(theTarget)) return e.preventDefault();
+                if ($.ui.customClickHandler(theTarget,e)) return e.preventDefault();
 
             }
             if (theTarget.href.toLowerCase().indexOf("javascript:") !== -1 || theTarget.getAttribute("data-ignore")) {
@@ -1925,6 +1989,9 @@
 
 
     $.ui = new ui();
+    $.ui.init=true;
+    $(window).trigger('afui:preinit');
+    $(window).trigger('afui:init'); 
 
 })(af);
 

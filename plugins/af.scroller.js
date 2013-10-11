@@ -274,15 +274,15 @@
                 if (this.scrollingLocked) return;
                 this.scrollingLocked = true;
                 this.rememberEventsActive = this.eventsActive;
-                if (!this.eventsActive) {
-                    this.initEvents();
+                if (this.eventsActive) {
+                    this.disable();
                 }
             },
             unlock: function () {
                 if (!this.scrollingLocked) return;
                 this.scrollingLocked = false;
-                if (!this.rememberEventsActive) {
-                    this.removeEvents();
+                if (this.rememberEventsActive) {
+                    this.enable();
                 }
             },
             scrollToItem: function (el, where) { //TODO: add functionality for x position
@@ -891,8 +891,10 @@
             this.lastScrollInfo = scrollInfo;
             this.hasMoved = false;
 
-            this.scrollerMoveCSS(this.lastScrollInfo, 0);
-      
+           if(this.elementInfo.maxTop==0&&this.elementInfo.maxLeft==0)
+                this.currentScrollingObject=null;
+            else
+                this.scrollerMoveCSS(this.lastScrollInfo, 0);
 
         };
         jsScroller.prototype.getCSSMatrix = function (el) {
@@ -1079,7 +1081,7 @@
             }
 
             if (this.infinite && !this.infiniteTriggered) {
-                if ((Math.abs(this.lastScrollInfo.top) >= (this.el.clientHeight - this.container.clientHeight))) {
+                if ((Math.abs(this.lastScrollInfo.top) > (this.el.clientHeight - this.container.clientHeight))) {
                     this.infiniteTriggered = true;
                     $.trigger(this, "infinite-scroll");
                 }
