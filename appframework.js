@@ -2,8 +2,8 @@
  * App Framwork  query selector class for HTML5 mobile apps on a WebkitBrowser.
  * Since most mobile devices (Android, iOS, webOS) use a WebKit browser, you only need to target one browser.
  * We are able to increase the speed greatly by removing support for legacy desktop browsers and taking advantage of browser features, like native JSON parsing and querySelectorAll
- 
- 
+
+
  * MIT License
  * @author AppMobi
  * @copyright Intel
@@ -27,7 +27,7 @@ if (!window.af || typeof(af) !== "function") {
             _eventID = 1,
             jsonPHandlers = [],
             _jsonPID = 1,
-            fragementRE = /^\s*<(\w+)[^>]*>/,
+            fragmentRE = /<(\w+)[^>]*>/,
             classSelectorRE = /^\.([\w-]+)$/,
             tagSelectorRE = /^[\w-]+$/,
             _attrCache = {},
@@ -194,9 +194,7 @@ if (!window.af || typeof(af) !== "function") {
         function _selectorAll(selector, what) {
             try {
                 return what.querySelectorAll(selector);
-                /*classSelectorRE.test(selector) ? what.getElementsByClassName(RegExp.$1) :
-                    tagSelectorRE.test(selector) ? what.getElementsByTagName(selector) :
-                    what.querySelectorAll(selector);*/
+
             } catch (e) {
                 return [];
             }
@@ -213,7 +211,7 @@ if (!window.af || typeof(af) !== "function") {
 
             selector = selector.trim();
 
-            if (selector[0] === "#" && selector.indexOf(".") == -1 && selector.indexOf(" ") === -1 && selector.indexOf(">") === -1) {
+            if (selector[0] === "#" && selector.indexOf(".") == -1 &&selector.indexOf(",") == -1 && selector.indexOf(" ") === -1 && selector.indexOf(">") === -1) {
                 if (what == document)
                     _shimNodes(what.getElementById(selector.replace("#", "")), this);
                 else
@@ -275,18 +273,18 @@ if (!window.af || typeof(af) !== "function") {
                 i, key;
             if ($.isArray(elements))
                 for (i = 0; i < elements.length; i++) {
-                    value = callback(elements[i], i);
+                    value = callback.apply(elements[i],[i,elements[i]]);
                     if (value !== nundefined)
                         values.push(value);
             } else if ($.isObject(elements))
                 for (key in elements) {
-                    if (!elements.hasOwnProperty(key))
+                    if (!elements.hasOwnProperty(key) || key == "length")
                         continue;
-                    value = callback(elements[key], key);
+                    value = callback(elements[key],[key,elements[key]]);
                     if (value !== nundefined)
                         values.push(value);
             }
-            return af([values]);
+            return af(values);
         };
 
         /**
@@ -308,7 +306,7 @@ if (!window.af || typeof(af) !== "function") {
                         return elements;
             } else if ($.isObject(elements))
                 for (key in elements) {
-                    if (!elements.hasOwnProperty(key))
+                    if (!elements.hasOwnProperty(key) || key == "length")
                         continue;
                     if (callback(key, elements[key]) === false)
                         return elements;
@@ -386,13 +384,14 @@ if (!window.af || typeof(af) !== "function") {
         * @title $.isObject(param)
         */
         $.isObject = function(obj) {
-            return typeof obj === "object";
+            return typeof obj === "object" && obj !== null;
         };
 
         /**
          * Prototype for afm object.  Also extens $.fn
          */
         $.fn = $afm.prototype = {
+            namepsace:"appframework",
             constructor: $afm,
             forEach: emptyArray.forEach,
             reduce: emptyArray.reduce,
@@ -430,11 +429,11 @@ if (!window.af || typeof(af) !== "function") {
                 var value, values = [],
                     i;
                 for (i = 0; i < this.length; i++) {
-                    value = fn(i, this[i]);
+                    value = fn.apply(this[i],[i,this[i]]);
                     if (value !== nundefined)
                         values.push(value);
                 }
-                return $([values]);
+                return $(values);
             },
             /**
             * Iterates through all elements and applys a callback function
@@ -700,13 +699,15 @@ if (!window.af || typeof(af) !== "function") {
             * @title $().toggle([show])
             */
             toggle: function(show) {
-                var show2 = show === true ? true : false;
+                if(this.length === 0)
+                    return this;
+                var show2 = !!(show === true);
                 for (var i = 0; i < this.length; i++) {
-                    if (window.getComputedStyle(this[i])['display'] !== "none" || (show != nundefined && show2 === false)) {
-                        this[i].setAttribute("afmOldStyle", this[i].style.display);
+                    if (this.css("display", null, this[i]) != "none" && (show == nundefined || show2 === false)) {
+                        this[i].setAttribute("afmOldStyle", this.css("display", null, this[i]));
                         this[i].style.display = "none";
-                    } else {
-                        this[i].style.display = this[i].getAttribute("afmOldStyle") != nundefined ? this[i].getAttribute("afmOldStyle") : 'block';
+                    } else if (this.css("display", null, this[i]) == "none" && (show == nundefined || show2 === true)) {
+                        this[i].style.display = this[i].getAttribute("afmOldStyle") ? this[i].getAttribute("afmOldStyle") : 'block';
                         this[i].removeAttribute("afmOldStyle");
                     }
                 }
@@ -768,7 +769,7 @@ if (!window.af || typeof(af) !== "function") {
                         if (!_attrCache[this[i].afmCacheId])
                             _attrCache[this[i].afmCacheId] = {};
                         _attrCache[this[i].afmCacheId][attr] = value;
-                    } else if (value === null && value != nundefined) {
+                    } else if (value === null) {
                         this[i].removeAttribute(attr);
                         if (this[i].afmCacheId && _attrCache[this[i].afmCacheId][attr])
                             delete _attrCache[this[i].afmCacheId][attr];
@@ -888,7 +889,9 @@ if (!window.af || typeof(af) !== "function") {
                     return this;
                 for (var i = 0; i < elems.length; i++) {
                     $.cleanUpContent(elems[i], true, true);
-                    elems[i].parentNode.removeChild(elems[i]);
+                    if (elems[i] && elems[i].parentNode) {
+                        elems[i].parentNode.removeChild(elems[i]);
+                    }
                 }
                 return this;
             },
@@ -937,6 +940,10 @@ if (!window.af || typeof(af) !== "function") {
                         return this;
                     }
                     var classList = this[i].className;
+					//SGV LINK EVENT
+					if (typeof this[i].className == "object") {
+						classList = " ";
+					}
                     name.split(/\s+/g).forEach(function(cname) {
                         classList = classList.replace(classRE(cname), " ");
                     });
@@ -944,6 +951,27 @@ if (!window.af || typeof(af) !== "function") {
                         this[i].className = classList.trim();
                     else
                         this[i].className = "";
+                }
+                return this;
+            },
+            /**
+            * Adds or removes a css class to elements.
+                ```
+                $().toggleClass("selected");
+                ```
+
+            * @param {String} classes that are space delimited
+            * @param {Boolean} [state] force toggle to add or remove classes
+            * @return {Object} appframework object
+            * @title $().toggleClass(name)
+            */
+            toggleClass: function(name, state) {
+                if (name == nundefined) return this;
+                for (var i = 0; i < this.length; i++) {
+                    if (typeof state != "boolean") {
+                        state = this.hasClass(name, this[i]);
+                    }
+                    $(this[i])[state ? 'removeClass' : 'addClass'](name);
                 }
                 return this;
             },
@@ -1024,7 +1052,7 @@ if (!window.af || typeof(af) !== "function") {
                         element = $(element);
                         _insertFragments(element, this[i], insert);
                     } else {
-                        var obj = fragementRE.test(element) ? $(element) : undefined;
+                        var obj = fragmentRE.test(element) ? $(element) : undefined;                        
                         if (obj == nundefined || obj.length === 0) {
                             obj = document.createTextNode(element);
                         }
@@ -1903,8 +1931,8 @@ if (!window.af || typeof(af) !== "function") {
             $.os.touchpad = $.os.webos && userAgent.match(/TouchPad/) ? true : false;
             $.os.ios = $.os.ipad || $.os.iphone;
             $.os.playbook = userAgent.match(/PlayBook/) ? true : false;
-            $.os.blackberry = $.os.playbook || userAgent.match(/BlackBerry/) ? true : false;
-            $.os.blackberry10 = $.os.blackberry && userAgent.match(/Safari\/536/) ? true : false;
+            $.os.blackberry10 = userAgent.match(/BB10/) ? true : false;
+            $.os.blackberry = $.os.playbook || $.os.blackberry10|| userAgent.match(/BlackBerry/) ? true : false;
             $.os.chrome = userAgent.match(/Chrome/) ? true : false;
             $.os.opera = userAgent.match(/Opera/) ? true : false;
             $.os.fennec = userAgent.match(/fennec/i) ? true : userAgent.match(/Firefox/) ? true : false;
@@ -1914,12 +1942,14 @@ if (!window.af || typeof(af) !== "function") {
             //features
             $.feat = {};
             var head = document.documentElement.getElementsByTagName("head")[0];
-            $.feat.nativeTouchScroll = typeof(head.style["-webkit-overflow-scrolling"]) !== "undefined" && $.os.ios;
+            $.feat.nativeTouchScroll = typeof(head.style["-webkit-overflow-scrolling"]) !== "undefined" && ($.os.ios||$.os.blackberry10);
             $.feat.cssPrefix = $.os.webkit ? "Webkit" : $.os.fennec ? "Moz" : $.os.ie ? "ms" : $.os.opera ? "O" : "";
             $.feat.cssTransformStart = !$.os.opera ? "3d(" : "(";
             $.feat.cssTransformEnd = !$.os.opera ? ",0)" : ")";
             if ($.os.android && !$.os.webkit)
                 $.os.android = false;
+
+
         }
 
         detectUA($, navigator.userAgent);
@@ -1948,32 +1978,46 @@ if (!window.af || typeof(af) !== "function") {
            */
         $.getCssMatrix = function(ele) {
             if ($.is$(ele)) ele = ele.get(0);
-            if (ele == nundefined) return window.WebKitCSSMatrix || window.MSCSSMatrix || {
-                    a: 0,
-                    b: 0,
-                    c: 0,
-                    d: 0,
-                    e: 0,
-                    f: 0
-            };
-            try {
-                if (window.WebKitCSSMatrix)
-                    return new WebKitCSSMatrix(window.getComputedStyle(ele).webkitTransform);
-                else if (window.MSCSSMatrix)
-                    return new MSCSSMatrix(window.getComputedStyle(ele).transform);
+
+            var matrixFn = window.WebKitCSSMatrix || window.MSCSSMatrix;
+
+            if (ele === nundefined) {
+                if (matrixFn) {
+                    return new matrixFn();
+                }
                 else {
-                    //fake css matrix
-                    var mat = window.getComputedStyle(ele)[$.feat.cssPrefix + 'Transform'].replace(/[^0-9\-.,]/g, '').split(',');
                     return {
-                        a: +mat[0],
-                        b: +mat[1],
-                        c: +mat[2],
-                        d: +mat[3],
-                        e: +mat[4],
-                        f: +mat[5]
+                        a: 0,
+                        b: 0,
+                        c: 0,
+                        d: 0,
+                        e: 0,
+                        f: 0
                     };
                 }
-            } catch (e) {
+            }
+
+            var computedStyle = window.getComputedStyle(ele);
+
+            var transform = computedStyle.webkitTransform ||
+                            computedStyle.transform ||
+                            computedStyle[$.feat.cssPrefix + 'Transform'];
+
+            if (matrixFn)
+                return new matrixFn(transform);
+            else if (transform) {
+                //fake css matrix
+                var mat = transform.replace(/[^0-9\-.,]/g, '').split(',');
+                return {
+                    a: +mat[0],
+                    b: +mat[1],
+                    c: +mat[2],
+                    d: +mat[3],
+                    e: +mat[4],
+                    f: +mat[5]
+                };
+            }
+            else {
                 return {
                     a: 0,
                     b: 0,
@@ -2074,7 +2118,7 @@ if (!window.af || typeof(af) !== "function") {
             if (event.ns)
                 var matcher = matcherFor(event.ns);
             return (handlers[afmid(element)] || []).filter(function(handler) {
-                return handler && (!event.e || handler.e == event.e) && (!event.ns || matcher.test(handler.ns)) && (!fn || handler.fn == fn || (typeof handler.fn === 'function' && typeof fn === 'function' && "" + handler.fn === "" + fn)) && (!selector || handler.sel == selector);
+                return handler && (!event.e || handler.e == event.e) && (!event.ns || matcher.test(handler.ns)) && (!fn || handler.fn == fn || (typeof handler.fn === 'function' && typeof fn === 'function' && handler.fn === fn)) && (!selector || handler.sel == selector);
             });
         }
         /**
@@ -2234,8 +2278,8 @@ if (!window.af || typeof(af) !== "function") {
             return this.each(function(i, element) {
                 add(this, event, callback, null, function(fn, type) {
                     return function() {
-                        var result = fn.apply(element, arguments);
                         remove(element, type, fn);
+                        var result = fn.apply(element, arguments);
                         return result;
                     };
                 });
@@ -2297,10 +2341,8 @@ if (!window.af || typeof(af) !== "function") {
         * @return {Object} appframework object
         * @title $().delegate(selector,event,callback)
         */
-        $.fn.delegate = function(selector, event, callback) {
-            for (var i = 0; i < this.length; i++) {
-                var element = this[i];
-                add(element, event, callback, selector, function(fn) {
+        function addDelegate(element,event,callback,selector){
+            add(element, event, callback, selector, function(fn) {
                     return function(e) {
                         var evt, match = $(e.target).closest(selector, element).get(0);
                         if (match) {
@@ -2312,6 +2354,11 @@ if (!window.af || typeof(af) !== "function") {
                         }
                     };
                 });
+        }
+        $.fn.delegate = function(selector, event, callback) {
+
+            for (var i = 0; i < this.length; i++) {
+                addDelegate(this[i],event,callback,selector)
             }
             return this;
         };
@@ -2448,7 +2495,7 @@ if (!window.af || typeof(af) !== "function") {
             if (!$.isArray(args)) args = [];
             for (var i = 0; i < ev.length; i++) {
                 if (obj.__events[ev[i]]) {
-                    var evts = obj.__events[ev[i]];
+                    var evts = obj.__events[ev[i]].slice(0);
                     for (var j = 0; j < evts.length; j++)
                         if ($.isFunction(evts[j]) && evts[j].apply(obj, args) === false)
                             ret = false;

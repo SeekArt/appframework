@@ -69,9 +69,8 @@ body {
 }
 
 
-#afui .afmScrollbar { background:white !important; } /* Sets the color of the scrollbar */
 
-#afui .afmScrollPanel { width:100%; min-height:100%;overflow:hidden;/*hack to auto expand height with floats*/ }
+#afui .afScrollPanel { width:100%; min-height:100%; }
 
 #afui {
 	position:absolute;
@@ -125,7 +124,7 @@ body {
 	font-size:18px;
 	font-weight:bold;
 	left:27.5%;
-	color:#fff;
+	color:inherit;
 	padding:10px 0;
 	text-shadow:rgba(0,0,0,0.8) 0 -1px 0;
 	text-align:center;
@@ -249,7 +248,18 @@ body {
 	
 }
 
-#afui #menu_scroller {
+#afui > #aside_menu {
+	z-index:1;
+	width:200px;
+	bottom:0;
+	height:100%;
+	display:block !important;
+	position:absolute; top:0; right:0;
+	
+}
+
+
+#afui #menu_scroller, #afui #aside_menu_scroller {
 	padding-bottom:10px;
 	overflow-y:auto;
 	overflow-x:hidden;
@@ -258,7 +268,7 @@ body {
 }
 
 
-#afui #menu_scroller > * {
+#afui #menu_scroller > *,  #afui #aside_menu_scroller > * {
 	-webkit-backface-visibility: hidden;
 	-webkit-perspective: 1000;
 }
@@ -379,7 +389,7 @@ body {
 	UI
 **********************************************************/
 
-#afui .ui-icon {
+.ui-icon {
 	background: 						#666;
 	background: 						rgba(0,0,0,.4);
 	background-repeat: no-repeat;

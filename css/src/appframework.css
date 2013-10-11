@@ -2,6 +2,11 @@
 
  */
 
+ @-ms-viewport {
+  width: device-width;
+}
+
+
 #afui {
     background:white;
     color:#53575E;
@@ -12,6 +17,7 @@
     background:#0088D1;
     border:none;
     border-bottom:1px solid #0088D1;
+    color:white;
  }
 
 #afui  #header h1 {
