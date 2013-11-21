@@ -156,17 +156,13 @@ body {
 	overflow-y:auto;
 	overflow-x:hidden;
 	-webkit-overflow-scrolling:touch;
-	-webkit-backface-visibility: hidden;
-	-webkit-perspective: 1000;
+	-webkit-backface-visibility:visible;
 	padding:10px;
 	padding-top:0px;
 } /* This class is applied to the divs that contain the various "views" or pages of the app. */
 
 
-#afui .panel > * {
-	-webkit-backface-visibility: hidden;
-	-webkit-perspective: 1000;
-}
+
 
 
 /**********************************************************
@@ -572,4 +568,22 @@ body {
 	}
 	
 	#afui .menuButton { display:none;	}
+}
+
+@media print {
+      body {
+          overflow:visible;
+      }
+      #afui #content{
+      	overflow: visible;
+      	left:0;      	
+      }
+      #afui {
+      	overflow:visible;
+      }
+      #afui .panel {
+      	overflow-x:visible !important;
+      	overflow-y:visible !important;
+      	overflow:visible !important;
+      }
 }

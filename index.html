@@ -27,11 +27,6 @@
   -->
       <link rel="stylesheet" type="text/css" href="css/src/main.css"  />
       <link rel="stylesheet" type="text/css" href="css/src/appframework.css"  />
-      <link rel="stylesheet" type="text/css" href="css/src/android.css"  />
-      <link rel="stylesheet" type="text/css" href="css/src/win8.css"  />
-      <link rel="stylesheet" type="text/css" href="css/src/bb.css"  />
-      <link rel="stylesheet" type="text/css" href="css/src/ios.css"  />
-      <link rel="stylesheet" type="text/css" href="css/src/ios7.css"  />
 
       <link rel="stylesheet" type="text/css" href="css/src/badges.css"  />
       <link rel="stylesheet" type="text/css" href="css/src/buttons.css"  />
@@ -42,6 +37,12 @@
       <link rel="stylesheet" type="text/css" href="plugins/css/af.actionsheet.css"  />
       <link rel="stylesheet" type="text/css" href="plugins/css/af.popup.css"  />
       <link rel="stylesheet" type="text/css" href="plugins/css/af.selectBox.css"  />
+        
+      <link rel="stylesheet" type="text/css" href="css/src/android.css"  />
+      <link rel="stylesheet" type="text/css" href="css/src/win8.css"  />
+      <link rel="stylesheet" type="text/css" href="css/src/bb.css"  />
+      <link rel="stylesheet" type="text/css" href="css/src/ios7.css"  />
+      <link rel="stylesheet" type="text/css" href="css/src/ios.css"  />        
 
         <!-- uncomment for AppMobi apps <script type="text/javascript" charset="utf-8" src="http://localhost:58888/_appMobi/appmobi.js"></script>
 <script type="text/javascript" charset="utf-8" src="http://localhost:58888/_appMobi/xhr.js"></script>
@@ -125,9 +126,10 @@
                 //hide splash screen
                 AppMobi.device.hideSplashScreen();
                 $.ui.blockPageScroll(); //block the page from scrolling at the header/footer
+                $.ui.launch();
 
             };
-            document.addEventListener("appMobi.device.ready", onDeviceReady, false);
+            document.addEventListener("intel.xdk.device.ready", onDeviceReady, false);
 
             function showHide(obj, objToHide) {
                 var el = $("#" + objToHide)[0];
@@ -1659,13 +1661,15 @@ The parent id for this div is "content". Let's verify it.
                             $.bind(myScroller, 'scrollstart', function () {
                                 console.log("scroll start");
                             });
+                            
                             $.bind(myScroller, "refresh-trigger", function () {
-                                this.setRefreshContent("New content");
+                                console.log("refresh-trigger");
                             });
+                            
                             var hideClose;
                             $.bind(myScroller, "refresh-release", function () {
+                                console.log("refresh-release");
                                 var that = this;
-                                this.setRefreshContent("New content...");
                                 clearTimeout(hideClose);
                                 hideClose = setTimeout(function () {
                                     console.log("hiding manually refresh");
@@ -1675,15 +1679,20 @@ The parent id for this div is "content". Let's verify it.
                             });
 
                             $.bind(myScroller, "refresh-cancel", function () {
+                                console.log("refresh-cancel");
                                 clearTimeout(hideClose);
-                                console.log("cancelled");
                             });
+                            
+                            $.bind(myScroller, "refresh-finish", function () {
+                                console.log("refresh-finish");
+                            });
+                            
                             myScroller.enable();
 
                             $.bind(myScroller, "infinite-scroll", function () {
                                 var self = this;
                                 console.log("infinite triggered");
-                                $(this.el).append("<div id='infinite' style='border:2px solid black;margin-top:10px;width:100%;height:20px'>Fetching content...</div>");
+                                $(this.el).append("<div id='infinite' style='height:60px;line-height:60px;text-align:center;font-weight:bold'>Fetching content...</div>");
                                 $.bind(myScroller, "infinite-scroll-end", function () {
                                     $.unbind(myScroller, "infinite-scroll-end");
                                     self.scrollToBottom();

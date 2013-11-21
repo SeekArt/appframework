@@ -24,6 +24,19 @@
     color:inherit;
     border-color:#33B5E5;
 }
+#afui.android #backButton
+{
+    background: inherit;
+    color:inherit;
+}
+
+#afui.android .menuButton:after {
+    border-color:white;
+}
+
+#afui.android.light .menuButton:after {
+    border-color:black;
+}
 
 
  #afui.android > #navbar {
@@ -185,10 +198,9 @@
 
 #afui.android .afPopup {
     display: block;
-    width: 100%;
+    width: 280px;
     float:left;
     border: solid 1px #33B5E5;
-    left:0px !important;
     padding: 10px;
     opacity: 1;
     -webkit-border-radius: 0;
@@ -203,18 +215,62 @@
     margin: 0px auto;
     background:inherit;
     color:inherit;
-    padding:30px;
+    padding:10px;
+}
+
+#afui.android .afPopup>HEADER{
+    font-weight:bold;
+    font-size:20px;    
+    text-align:center;
+    margin:0;
+    padding:5px;
+}
+
+#afui.android .afPopup>DIV{
+    font-size:14px;
+    text-align:center;
+    padding:5px;
+    margin:0;
+}
+
+#afui.android .afPopup>FOOTER>A#cancel{
+    float:left;
+    width:120px;
+    margin-left:4px;
+}
+
+#afui.android .afPopup>FOOTER>A#action{
+    float:right;
+    width:120px;
+    margin-right:4px;
 }
 
 #afui.android #af_actionsheet {
-    background:inherit;
+    border: #666 1px solid;
+    border-top: #33B5E5 3px solid;
+    background:#555;
     color:inherit;
+    margin:-20px 20px 0 20px;
+    padding:0px;
+}
+#afui.android.light #af_actionsheet {
+    border: #bbb 1px solid;
+    border-top: #33B5E5 3px solid;
+    background:#bbb;
 }
 
-#afui.android	 #af_actionsheet a{
+#afui.android #af_actionsheet a{
     border-radius:0;
     -webkit-border-radius:0;
-    border:1px solid #33B5E5;
-    background:inherit;
+    border:0px solid #777;
+    background:#424343;
     color:inherit;
+    line-height: 50px;
+    margin-bottom: 1px;
+}
+#afui.android.light #af_actionsheet a{
+    background:#fff;
+}
+#afui.android #af_actionsheet a.cancel{
+    margin-bottom: 0px;
 }
